@@ -1,5 +1,10 @@
 # Trucking Empire — Project Spec
 
+> **Historical document.** Parts no longer match the code. Drivers/hiring were removed.
+> Freight is no longer a browsable contract board — each idle truck gets an auto-suggested
+> haul with an interstate route and a light/heavy load choice. Money is integer `*Cents`.
+> See `CLAUDE.md` for current architecture.
+
 ## Overview
 A single-player, browser-based trucking company management/tycoon simulation. The player starts with a small operation (one van, no terminals) and grows into a national logistics company by buying vehicles, acquiring operating licenses, establishing terminals across states, hiring drivers, and fulfilling freight contracts.
 

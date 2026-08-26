@@ -4,25 +4,26 @@ import { LICENSE_CATALOG } from "../../data/licenseCatalog";
 import { STATES } from "../../data/stateData";
 import { formatCents } from "../../utils/format";
 import { hasLicense } from "../../systems/licenseSystem";
+import { CollapsiblePanel } from "../common/CollapsiblePanel";
 
 export function LicenseOffice() {
   const licenses = useGameStore((s) => s.state.licenses);
   const currentDay = useGameStore((s) => s.state.company.currentDay);
   const cashCents = useGameStore((s) => s.state.company.cashCents);
+  const freeMode = useGameStore((s) => s.freeMode);
   const buyLicense = useGameStore((s) => s.buyLicense);
   const [selectedState, setSelectedState] = useState<Record<string, string>>({});
 
   return (
-    <div className="bg-slate-800 rounded-lg p-4 flex flex-col gap-4">
-      <h2 className="text-lg font-semibold text-white">License Office</h2>
-
+    <CollapsiblePanel title="License Office" storageKey="licenses">
+      <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         {LICENSE_CATALOG.map((entry) => {
           const stateCode = selectedState[entry.type] ?? "";
           const owned = entry.scoped
             ? stateCode && hasLicense(licenses, entry.type, currentDay, stateCode)
             : hasLicense(licenses, entry.type, currentDay, "");
-          const canAfford = cashCents >= entry.priceCents;
+          const canAfford = freeMode || cashCents >= entry.priceCents;
 
           return (
             <div key={entry.type} className="bg-slate-900 rounded p-3 flex items-center justify-between gap-3">
@@ -88,6 +89,7 @@ export function LicenseOffice() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </CollapsiblePanel>
   );
 }

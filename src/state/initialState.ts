@@ -9,6 +9,7 @@ export function createInitialState(): GameState {
       reputation: BALANCE.startingReputation,
       currentDay: 1,
       headquarters: null,
+      homeStateCode: "",
     },
     vehicles: [],
     licenses: [],

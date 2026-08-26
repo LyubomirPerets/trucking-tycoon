@@ -5,6 +5,7 @@ export interface Company {
   reputation: number; // 0-100, affects contract quality and rates
   currentDay: number; // in-game day counter
   headquarters: Headquarters | null;
+  homeStateCode: string; // base of operations; "" until picked on the new-game screen
 }
 
 export interface Headquarters {
@@ -63,22 +64,51 @@ export interface Terminal {
 }
 
 // ── Contracts / Freight ──────────────────
-export type ContractStatus = "offered" | "accepted" | "inProgress" | "completed" | "failed";
+export type ContractStatus = "inProgress" | "completed" | "failed";
+
+export type LoadSize = "light" | "heavy";
 
 export interface Contract {
   id: string;
   originStateCode: string;
   destinationStateCode: string;
+  routePath: string[]; // ordered state codes along the interstate route
   cargoType: string;
   weightLbs: number;
+  loadSize: LoadSize;
   requiredVehicleClass: VehicleClass;
   requiredLicenses: LicenseType[];
   payoutCents: number;
   distanceMiles: number;
+  progressMiles: number; // miles driven so far toward distanceMiles
   deadlineDay: number;
-  offeredOnDay: number;
+  startedOnDay: number;
   status: ContractStatus;
   assignedVehicleId: string | null;
+}
+
+// ── Job suggestions (ephemeral — not part of GameState / not persisted) ──
+export interface LoadOption {
+  loadSize: LoadSize;
+  weightLbs: number;
+  payoutCents: number;
+  estNetCents: number; // payout minus a rough fuel + maintenance estimate for the trip
+  estNetCentsPerDay: number; // estNetCents / estimatedDays
+  requiredVehicleClass: VehicleClass;
+  requiredLicenses: LicenseType[];
+  estimatedDays: number;
+  feasible: boolean; // can THIS vehicle take this load right now?
+  blockReason?: string; // why not, if infeasible
+}
+
+export interface JobSuggestion {
+  vehicleId: string;
+  originStateCode: string;
+  destinationStateCode: string;
+  routePath: string[];
+  distanceMiles: number;
+  cargoType: string;
+  options: Record<LoadSize, LoadOption>;
 }
 
 // ── Events ───────────────────────────────

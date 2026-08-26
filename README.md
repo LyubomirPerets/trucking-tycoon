@@ -24,13 +24,15 @@ npm run lint      # eslint
 
 ## Current status
 
+- New-game screen: pick a home state; the whole grid unlocks after that
 - Game state store with save/load to `localStorage` (tolerant of saves from older versions of the schema)
 - Dashboard: cash, reputation, current day, Advance Day
-- Fleet Manager: a wide vehicle catalog across vans/box trucks/semis, filterable by class; fleet size capped by terminal capacity
-- License Office: buy operating authorities/endorsements; contracts require them (interstate authority always, hazmat/refrigerated/oversize situationally — all national) and auto-renew annually if affordable
-- Cheats / Debug panel: inject cash, grant all licenses, set reputation/day, Free Mode (free purchases, no capacity limit)
-- Terminal Map: an interactive US map (`react-simple-maps`) to open and upgrade terminals per state, minimizable; terminal leases billed monthly
-- Contract Board: weekly offered contracts, accept, assign an idle vehicle of the right class (once licensed), watch it complete on the deadline day and pay out
+- Fleet Manager: a wide vehicle catalog across vans/box trucks/semis, filterable by class; fleet size capped by terminal capacity; assign each truck a home base
+- License Office: buy operating authorities/endorsements; hauls require them (interstate authority always, hazmat/refrigerated/oversize situationally — all national) and auto-renew annually if affordable
+- Cheats / Debug panel: inject cash, grant all licenses, set reputation/day/home state, Free Mode (free purchases, no capacity limit)
+- Terminal Map: an interactive US map (`react-simple-maps`) to open and upgrade terminals per state; active haul routes drawn along the interstate graph; minimizable; terminal leases billed monthly
+- Dispatch: no contract board — each idle truck gets an auto-suggested haul (demand-weighted destination, interstate route + mileage, cargo, light/heavy load). Retarget the destination, reroll, pick light or heavy, dispatch; watch progress accrue day by day until delivery pays out
+- Every panel is collapsible; open/closed state is remembered
 - Tick engine (`src/systems/tickEngine.ts`) is a pure function — covered by tests in `tickEngine.test.ts`
 
 Driver hiring/wages were tried and removed by design — vehicle operating cost is all-in (upkeep + crew) rather than tracking individual drivers.

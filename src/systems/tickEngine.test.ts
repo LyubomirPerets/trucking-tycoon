@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceDay } from "./tickEngine";
 import { createInitialState } from "../state/initialState";
+import { BALANCE } from "../data/balance";
 import type { Contract, Vehicle } from "../types";
 
 const noBreakdown = () => 0.99; // rng always above breakdown chance
@@ -29,19 +30,25 @@ function makeContract(overrides: Partial<Contract> = {}): Contract {
     id: "contract-1",
     originStateCode: "NC",
     destinationStateCode: "SC",
+    routePath: ["NC", "SC"],
     cargoType: "General Freight",
-    weightLbs: 1000,
+    weightLbs: 3000,
+    loadSize: "light",
     requiredVehicleClass: "van",
     requiredLicenses: [],
     payoutCents: 100_000,
     distanceMiles: 200,
-    deadlineDay: 4,
-    offeredOnDay: 1,
+    progressMiles: 0,
+    deadlineDay: 10,
+    startedOnDay: 1,
     status: "inProgress",
     assignedVehicleId: "vehicle-1",
     ...overrides,
   };
 }
+
+const milesPerLightDay =
+  BALANCE.baseTruckSpeedMph * BALANCE.drivingHoursPerDay * BALANCE.loadSpeedFactor.light;
 
 describe("advanceDay", () => {
   it("increments the day counter", () => {
@@ -57,51 +64,74 @@ describe("advanceDay", () => {
     expect(JSON.stringify(state)).toBe(snapshot);
   });
 
-  it("deducts fuel and maintenance costs for an in-progress contract", () => {
+  it("advances a haul by miles/day and deducts fuel + maintenance", () => {
     const state = createInitialState();
     state.vehicles = [makeVehicle()];
-    state.contracts = [makeContract()];
+    state.contracts = [makeContract({ distanceMiles: 5000 })];
 
     const next = advanceDay(state, noBreakdown);
+    const contract = next.contracts[0];
+    expect(contract.progressMiles).toBeCloseTo(milesPerLightDay);
+    expect(contract.status).toBe("inProgress");
     expect(next.company.cashCents).toBeLessThan(state.company.cashCents);
     expect(next.vehicles[0].mileage).toBeGreaterThan(0);
   });
 
-  it("pays out and completes a contract on its deadline day, freeing the vehicle", () => {
+  it("heavy loads travel slower than light loads", () => {
+    const base = createInitialState();
+    base.vehicles = [makeVehicle({ class: "semi", cargoCapacityLbs: 45000 })];
+
+    const light = advanceDay(
+      { ...base, contracts: [makeContract({ distanceMiles: 5000, loadSize: "light" })] },
+      noBreakdown
+    );
+    const heavy = advanceDay(
+      { ...base, contracts: [makeContract({ distanceMiles: 5000, loadSize: "heavy" })] },
+      noBreakdown
+    );
+    expect(heavy.contracts[0].progressMiles).toBeLessThan(light.contracts[0].progressMiles);
+  });
+
+  it("pays out in full and frees the vehicle when the load arrives on time", () => {
     const state = createInitialState();
-    state.company.currentDay = 3;
     state.vehicles = [makeVehicle()];
-    state.contracts = [makeContract({ deadlineDay: 4, offeredOnDay: 1 })];
+    // Short trip that finishes in one day, well before the deadline.
+    state.contracts = [makeContract({ distanceMiles: 50, deadlineDay: 10, payoutCents: 100_000 })];
 
     const cashBefore = state.company.cashCents;
     const next = advanceDay(state, noBreakdown);
 
-    const contract = next.contracts.find((c) => c.id === "contract-1")!;
+    const contract = next.contracts[0];
     expect(contract.status).toBe("completed");
-    expect(next.company.cashCents).toBeGreaterThan(cashBefore);
+    expect(next.company.cashCents).toBeGreaterThan(cashBefore + 90_000); // net of costs on 50 mi
     expect(next.vehicles[0].status).toBe("idle");
   });
 
-  it("drops offered contracts past their expiry window", () => {
+  it("pays a reduced amount for a late delivery", () => {
     const state = createInitialState();
-    state.company.currentDay = 10;
+    state.company.currentDay = 20;
+    state.vehicles = [makeVehicle()];
     state.contracts = [
-      makeContract({
-        id: "stale-offer",
-        status: "offered",
-        offeredOnDay: 1,
-        assignedVehicleId: null,
-      }),
+      makeContract({ distanceMiles: 50, deadlineDay: 5, payoutCents: 100_000 }),
     ];
 
+    const cashBefore = state.company.cashCents;
     const next = advanceDay(state, noBreakdown);
-    expect(next.contracts.find((c) => c.id === "stale-offer")).toBeUndefined();
+    const gained = next.company.cashCents - cashBefore;
+    expect(next.contracts[0].status).toBe("completed");
+    expect(gained).toBeLessThan(60_000); // ~half payout minus costs
+    expect(gained).toBeGreaterThan(0);
   });
 
-  it("generates weekly contract offers every 7th day", () => {
+  it("fails a haul and frees nothing on breakdown", () => {
+    const alwaysBreakdown = () => 0; // rng below breakdown chance
     const state = createInitialState();
-    state.company.currentDay = 6; // advancing lands on day 7
-    const next = advanceDay(state, noBreakdown);
-    expect(next.contracts.length).toBeGreaterThan(0);
+    state.vehicles = [makeVehicle({ condition: 5 })];
+    state.contracts = [makeContract({ distanceMiles: 5000 })];
+
+    const next = advanceDay(state, alwaysBreakdown);
+    expect(next.contracts[0].status).toBe("failed");
+    expect(next.vehicles[0].status).toBe("maintenance");
+    expect(next.company.reputation).toBeLessThan(state.company.reputation);
   });
 });
