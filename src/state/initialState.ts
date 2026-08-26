@@ -1,5 +1,6 @@
 import type { GameState } from "../types";
 import { BALANCE } from "../data/balance";
+import { generateDriverCandidates } from "../systems/driverGenerator";
 
 export function createInitialState(): GameState {
   return {
@@ -14,6 +15,7 @@ export function createInitialState(): GameState {
     licenses: [],
     terminals: [],
     drivers: [],
+    driverCandidates: generateDriverCandidates(BALANCE.driverCandidatesPerWeek, 1),
     contracts: [],
     eventLog: [
       {

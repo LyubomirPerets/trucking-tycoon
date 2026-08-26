@@ -5,6 +5,14 @@ export const BALANCE = {
 
   contractsOfferedPerWeek: 3,
   contractOfferExpiryDays: 7,
+
+  driverCandidatesPerWeek: 3,
+
+  licenseTermDays: 365,
+  oversizeWeightThresholdLbs: 30_000,
+
+  baseFleetCapacityNoTerminals: 3, // vehicles allowed before any terminal is bought
+  terminalLeaseIntervalDays: 30,
   minContractDistanceMiles: 80,
   maxContractDistanceMiles: 1200,
   payoutCentsPerMile: 220, // base rate before reputation/demand modifiers

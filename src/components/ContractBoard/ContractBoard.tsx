@@ -1,12 +1,22 @@
+import { useState } from "react";
 import { useGameStore } from "../../state/gameStore";
 import { formatCents } from "../../utils/format";
-import type { Contract } from "../../types";
+import { LICENSE_CATALOG } from "../../data/licenseCatalog";
+import { hasAllRequiredLicenses } from "../../systems/licenseSystem";
+import type { Contract, Driver, License, Vehicle } from "../../types";
+
+function licenseLabel(type: Contract["requiredLicenses"][number]): string {
+  return LICENSE_CATALOG.find((e) => e.type === type)?.label ?? type;
+}
 
 export function ContractBoard() {
   const contracts = useGameStore((s) => s.state.contracts);
   const vehicles = useGameStore((s) => s.state.vehicles);
+  const drivers = useGameStore((s) => s.state.drivers);
+  const licenses = useGameStore((s) => s.state.licenses);
+  const currentDay = useGameStore((s) => s.state.company.currentDay);
   const acceptContract = useGameStore((s) => s.acceptContract);
-  const assignVehicleToContract = useGameStore((s) => s.assignVehicleToContract);
+  const assignCrewToContract = useGameStore((s) => s.assignCrewToContract);
 
   const offered = contracts.filter((c) => c.status === "offered");
   const active = contracts.filter((c) => c.status === "accepted" || c.status === "inProgress");
@@ -45,42 +55,104 @@ export function ContractBoard() {
           <p className="text-slate-500 text-sm">Nothing in progress.</p>
         ) : (
           <div className="flex flex-col gap-2">
-            {active.map((c) => {
-              const eligibleVehicles = vehicles.filter(
-                (v) => v.status === "idle" && v.class === c.requiredVehicleClass
-              );
-              return (
-                <ContractRow key={c.id} contract={c}>
-                  {c.status === "accepted" ? (
-                    eligibleVehicles.length === 0 ? (
-                      <span className="text-xs text-amber-400">No idle {c.requiredVehicleClass} available</span>
-                    ) : (
-                      <select
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) assignVehicleToContract(c.id, e.target.value);
-                        }}
-                        className="bg-slate-700 text-white text-sm rounded px-2 py-1"
-                      >
-                        <option value="" disabled>
-                          Assign vehicle…
-                        </option>
-                        {eligibleVehicles.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.make} {v.model}
-                          </option>
-                        ))}
-                      </select>
-                    )
-                  ) : (
-                    <span className="text-xs text-blue-300">En route · due day {c.deadlineDay}</span>
-                  )}
-                </ContractRow>
-              );
-            })}
+            {active.map((c) => (
+              <ContractRow key={c.id} contract={c}>
+                {c.status === "accepted" ? (
+                  <DispatchControls
+                    contract={c}
+                    vehicles={vehicles}
+                    drivers={drivers}
+                    licenses={licenses}
+                    currentDay={currentDay}
+                    onDispatch={(vehicleId, driverId) => assignCrewToContract(c.id, vehicleId, driverId)}
+                  />
+                ) : (
+                  <span className="text-xs text-blue-300">En route · due day {c.deadlineDay}</span>
+                )}
+              </ContractRow>
+            ))}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function DispatchControls({
+  contract,
+  vehicles,
+  drivers,
+  licenses,
+  currentDay,
+  onDispatch,
+}: {
+  contract: Contract;
+  vehicles: Vehicle[];
+  drivers: Driver[];
+  licenses: License[];
+  currentDay: number;
+  onDispatch: (vehicleId: string, driverId: string) => void;
+}) {
+  const [vehicleId, setVehicleId] = useState("");
+  const [driverId, setDriverId] = useState("");
+
+  const eligibleVehicles = vehicles.filter(
+    (v) => v.status === "idle" && v.class === contract.requiredVehicleClass
+  );
+  const availableDrivers = drivers.filter((d) => d.status === "available");
+  const missingLicenses = contract.requiredLicenses.filter(
+    (type) => !hasAllRequiredLicenses(licenses, [type], currentDay, contract.originStateCode)
+  );
+
+  if (missingLicenses.length > 0) {
+    return (
+      <span className="text-xs text-amber-400">Missing: {missingLicenses.map(licenseLabel).join(", ")}</span>
+    );
+  }
+  if (eligibleVehicles.length === 0) {
+    return <span className="text-xs text-amber-400">No idle {contract.requiredVehicleClass} available</span>;
+  }
+  if (availableDrivers.length === 0) {
+    return <span className="text-xs text-amber-400">No available drivers</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={vehicleId}
+        onChange={(e) => setVehicleId(e.target.value)}
+        className="bg-slate-700 text-white text-sm rounded px-2 py-1"
+      >
+        <option value="" disabled>
+          Vehicle…
+        </option>
+        {eligibleVehicles.map((v) => (
+          <option key={v.id} value={v.id}>
+            {v.make} {v.model}
+          </option>
+        ))}
+      </select>
+      <select
+        value={driverId}
+        onChange={(e) => setDriverId(e.target.value)}
+        className="bg-slate-700 text-white text-sm rounded px-2 py-1"
+      >
+        <option value="" disabled>
+          Driver…
+        </option>
+        {availableDrivers.map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.name}
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={() => onDispatch(vehicleId, driverId)}
+        disabled={!vehicleId || !driverId}
+        className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-semibold px-3 py-1.5 rounded transition-colors"
+      >
+        Dispatch
+      </button>
     </div>
   );
 }
@@ -98,6 +170,11 @@ function ContractRow({ contract, children }: { contract: Contract; children: Rea
         <div className="text-xs text-slate-400">
           {contract.cargoType} · {contract.weightLbs.toLocaleString()} lbs · due day {contract.deadlineDay}
         </div>
+        {contract.requiredLicenses.length > 0 && (
+          <div className="text-xs text-slate-500 mt-0.5">
+            Requires: {contract.requiredLicenses.map(licenseLabel).join(", ")}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <span className="text-emerald-400 font-semibold text-sm">{formatCents(contract.payoutCents)}</span>

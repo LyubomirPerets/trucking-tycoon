@@ -1,11 +1,16 @@
 import { useGameStore } from "../../state/gameStore";
 import { VEHICLE_CATALOG } from "../../data/vehicleCatalog";
 import { formatCents } from "../../utils/format";
+import { getFleetCapacity } from "../../systems/terminalSystem";
 
 export function FleetManager() {
   const vehicles = useGameStore((s) => s.state.vehicles);
+  const terminals = useGameStore((s) => s.state.terminals);
   const cashCents = useGameStore((s) => s.state.company.cashCents);
   const buyVehicle = useGameStore((s) => s.buyVehicle);
+
+  const capacity = getFleetCapacity(terminals);
+  const atCapacity = vehicles.length >= capacity;
 
   // Only the "van" class is unlocked at start (no licenses/terminals yet).
   const availableCatalog = VEHICLE_CATALOG.filter((entry) => entry.class === "van");
@@ -16,6 +21,11 @@ export function FleetManager() {
 
       <div>
         <h3 className="text-sm uppercase tracking-wide text-slate-400 mb-2">Buy a Vehicle</h3>
+        {atCapacity && (
+          <p className="text-amber-400 text-xs mb-2">
+            Fleet at capacity ({vehicles.length}/{capacity}). Open or upgrade a terminal for more room.
+          </p>
+        )}
         <div className="flex flex-col gap-2">
           {availableCatalog.map((entry) => (
             <div
@@ -32,7 +42,7 @@ export function FleetManager() {
               </div>
               <button
                 onClick={() => buyVehicle(entry)}
-                disabled={cashCents < entry.priceCents}
+                disabled={cashCents < entry.priceCents || atCapacity}
                 className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-semibold px-3 py-1.5 rounded transition-colors"
               >
                 Buy for {formatCents(entry.priceCents)}
@@ -44,7 +54,7 @@ export function FleetManager() {
 
       <div>
         <h3 className="text-sm uppercase tracking-wide text-slate-400 mb-2">
-          Owned Vehicles ({vehicles.length})
+          Owned Vehicles ({vehicles.length}/{capacity})
         </h3>
         {vehicles.length === 0 ? (
           <p className="text-slate-500 text-sm">No vehicles yet.</p>

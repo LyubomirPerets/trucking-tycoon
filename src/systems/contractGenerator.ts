@@ -1,6 +1,11 @@
-import type { Contract, GameState, VehicleClass } from "../types";
+import type { Contract, GameState, LicenseType, VehicleClass } from "../types";
 import { BALANCE } from "../data/balance";
 import { CARGO_TYPES, STATES, getState } from "../data/stateData";
+
+const CARGO_LICENSE_REQUIREMENTS: Partial<Record<(typeof CARGO_TYPES)[number], LicenseType>> = {
+  "Hazardous Materials": "hazmatEndorsement",
+  "Refrigerated Goods": "refrigeratedFreightCert",
+};
 
 const VEHICLE_CLASSES: VehicleClass[] = ["van", "boxTruck", "semi"];
 
@@ -45,14 +50,24 @@ export function generateContract(
   const travelDays = Math.ceil(distanceMiles / (BALANCE.averageTruckSpeedMph * 8));
   const deadlineDay = currentDay + travelDays + randomInRange(1, 4, rng);
 
+  const cargoType = randomItem(CARGO_TYPES, rng);
+  const weightLbs = randomInRange(500, 40_000, rng);
+
+  // Every contract crosses state lines, so interstate authority is always
+  // required; cargo type and heavy loads can layer on further requirements.
+  const requiredLicenses: LicenseType[] = ["interstateOperatingAuthority"];
+  const cargoLicense = CARGO_LICENSE_REQUIREMENTS[cargoType];
+  if (cargoLicense) requiredLicenses.push(cargoLicense);
+  if (weightLbs > BALANCE.oversizeWeightThresholdLbs) requiredLicenses.push("oversizeLoadPermit");
+
   return {
     id: `contract-${nextContractSeq++}`,
     originStateCode: origin.code,
     destinationStateCode: destination.code,
-    cargoType: randomItem(CARGO_TYPES, rng),
-    weightLbs: randomInRange(500, 40_000, rng),
+    cargoType,
+    weightLbs,
     requiredVehicleClass,
-    requiredLicenses: [],
+    requiredLicenses,
     payoutCents,
     distanceMiles,
     deadlineDay,

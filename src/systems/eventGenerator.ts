@@ -46,3 +46,15 @@ export function makeContractCompletedEvent(day: number, payoutCents: number, con
 export function makeContractFailedEvent(day: number, contractId: string, reason: string): GameEvent {
   return makeEvent(day, "contractFailed", `Contract ${contractId} failed: ${reason}`);
 }
+
+export function makeDriverCandidatesEvent(day: number, count: number): GameEvent {
+  return makeEvent(day, "info", `${count} new driver${count === 1 ? "" : "s"} available to hire.`);
+}
+
+export function makeLicenseRenewedEvent(day: number, label: string, costCents: number): GameEvent {
+  return makeEvent(day, "info", `Renewed ${label} for $${(costCents / 100).toLocaleString()}.`);
+}
+
+export function makeLicenseExpiredEvent(day: number, label: string): GameEvent {
+  return makeEvent(day, "info", `${label} expired and lapsed — insufficient funds to renew.`);
+}

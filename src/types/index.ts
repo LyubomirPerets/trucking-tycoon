@@ -77,6 +77,16 @@ export interface Driver {
   status: DriverStatus;
 }
 
+// A prospect in the hiring pool — becomes a Driver once hired.
+export interface DriverCandidate {
+  id: string;
+  name: string;
+  experienceLevel: 1 | 2 | 3 | 4 | 5;
+  cdlClass: "A" | "B" | "C";
+  wagePerMileCents: number;
+  offeredOnDay: number;
+}
+
 // ── Contracts / Freight ──────────────────
 export type ContractStatus = "offered" | "accepted" | "inProgress" | "completed" | "failed";
 
@@ -121,6 +131,7 @@ export interface GameState {
   licenses: License[];
   terminals: Terminal[];
   drivers: Driver[];
+  driverCandidates: DriverCandidate[];
   contracts: Contract[];
   eventLog: GameEvent[];
 }

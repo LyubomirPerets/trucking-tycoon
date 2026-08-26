@@ -1,11 +1,17 @@
-import type { Contract, GameState, Vehicle } from "../types";
+import type { Contract, Driver, GameState, License, Vehicle } from "../types";
 import { BALANCE } from "../data/balance";
 import { getState } from "../data/stateData";
+import { LICENSE_CATALOG } from "../data/licenseCatalog";
 import { generateWeeklyContracts } from "./contractGenerator";
+import { generateDriverCandidates } from "./driverGenerator";
 import {
   makeContractCompletedEvent,
   makeContractFailedEvent,
   makeContractOfferEvent,
+  makeDriverCandidatesEvent,
+  makeInfoEvent,
+  makeLicenseExpiredEvent,
+  makeLicenseRenewedEvent,
   rollBreakdown,
 } from "./eventGenerator";
 
@@ -27,6 +33,7 @@ export function advanceDay(state: GameState, rng: () => number = Math.random): G
   const newEvents = [...state.eventLog];
 
   const vehiclesById = new Map<string, Vehicle>(state.vehicles.map((v) => [v.id, { ...v }]));
+  const driversById = new Map<string, Driver>(state.drivers.map((d) => [d.id, { ...d }]));
 
   const updatedContracts: Contract[] = [];
 
@@ -40,13 +47,18 @@ export function advanceDay(state: GameState, rng: () => number = Math.random): G
       continue;
     }
 
-    if (contract.status !== "inProgress" || !contract.assignedVehicleId) {
+    if (
+      contract.status !== "inProgress" ||
+      !contract.assignedVehicleId ||
+      !contract.assignedDriverId
+    ) {
       updatedContracts.push(contract);
       continue;
     }
 
     const vehicle = vehiclesById.get(contract.assignedVehicleId);
-    if (!vehicle) {
+    const driver = driversById.get(contract.assignedDriverId);
+    if (!vehicle || !driver) {
       updatedContracts.push(contract);
       continue;
     }
@@ -59,7 +71,8 @@ export function advanceDay(state: GameState, rng: () => number = Math.random): G
 
     const fuelCostCents = Math.round((dailyDistance / vehicle.fuelEfficiencyMpg) * fuelPrice);
     const maintenanceCostCents = Math.round(dailyDistance * vehicle.maintenanceCostPerMileCents);
-    cashCents -= fuelCostCents + maintenanceCostCents;
+    const wageCostCents = Math.round(dailyDistance * driver.wagePerMileCents);
+    cashCents -= fuelCostCents + maintenanceCostCents + wageCostCents;
 
     vehicle.mileage += dailyDistance;
     vehicle.condition = Math.max(
@@ -72,8 +85,9 @@ export function advanceDay(state: GameState, rng: () => number = Math.random): G
       newEvents.push(breakdownEvent);
       newEvents.push(makeContractFailedEvent(nextDay, contract.id, "vehicle breakdown"));
       vehicle.status = "maintenance";
+      driver.status = "available";
       reputation = Math.max(0, reputation - BALANCE.reputationLossOnFailure);
-      updatedContracts.push({ ...contract, status: "failed", assignedVehicleId: null });
+      updatedContracts.push({ ...contract, status: "failed", assignedVehicleId: null, assignedDriverId: null });
       continue;
     }
 
@@ -82,6 +96,7 @@ export function advanceDay(state: GameState, rng: () => number = Math.random): G
       reputation = Math.min(100, reputation + BALANCE.reputationGainOnCompletion);
       newEvents.push(makeContractCompletedEvent(nextDay, contract.payoutCents, contract.id));
       vehicle.status = "idle";
+      driver.status = "available";
       updatedContracts.push({ ...contract, status: "completed" });
     } else {
       updatedContracts.push(contract);
@@ -95,12 +110,42 @@ export function advanceDay(state: GameState, rng: () => number = Math.random): G
     }
   }
 
-  // Weekly contract offers.
+  // License renewals: auto-renew if affordable, otherwise let them lapse.
+  const updatedLicenses: License[] = [];
+  for (const license of state.licenses) {
+    if (nextDay >= license.expiresOnDay) {
+      const catalogEntry = LICENSE_CATALOG.find((e) => e.type === license.type);
+      const label = catalogEntry?.label ?? license.type;
+      const renewalCost = license.annualRenewalCostCents;
+      if (cashCents >= renewalCost) {
+        cashCents -= renewalCost;
+        updatedLicenses.push({ ...license, expiresOnDay: license.expiresOnDay + BALANCE.licenseTermDays });
+        newEvents.push(makeLicenseRenewedEvent(nextDay, label, renewalCost));
+      } else {
+        newEvents.push(makeLicenseExpiredEvent(nextDay, label));
+      }
+    } else {
+      updatedLicenses.push(license);
+    }
+  }
+
+  // Terminal leases, deducted monthly.
+  if (state.terminals.length > 0 && nextDay % BALANCE.terminalLeaseIntervalDays === 0) {
+    const totalLeaseCents = state.terminals.reduce((sum, t) => sum + t.monthlyLeaseCostCents, 0);
+    cashCents -= totalLeaseCents;
+    newEvents.push(makeInfoEvent(nextDay, `Paid $${(totalLeaseCents / 100).toLocaleString()} in terminal lease costs.`));
+  }
+
+  // Weekly contract offers and driver hiring pool refresh.
   let contractsWithOffers = updatedContracts;
+  let driverCandidates = state.driverCandidates;
   if (nextDay % 7 === 0) {
     const offers = generateWeeklyContracts({ ...state, company: { ...state.company, currentDay: nextDay } }, rng);
     contractsWithOffers = [...updatedContracts, ...offers];
     newEvents.push(makeContractOfferEvent(nextDay, offers.length));
+
+    driverCandidates = generateDriverCandidates(BALANCE.driverCandidatesPerWeek, nextDay, rng);
+    newEvents.push(makeDriverCandidatesEvent(nextDay, driverCandidates.length));
   }
 
   return {
@@ -112,6 +157,9 @@ export function advanceDay(state: GameState, rng: () => number = Math.random): G
       reputation,
     },
     vehicles: Array.from(vehiclesById.values()),
+    drivers: Array.from(driversById.values()),
+    driverCandidates,
+    licenses: updatedLicenses,
     contracts: contractsWithOffers,
     eventLog: newEvents,
   };
