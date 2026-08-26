@@ -3,6 +3,7 @@ import { FleetManager } from "./components/FleetManager/FleetManager";
 import { ContractBoard } from "./components/ContractBoard/ContractBoard";
 import { LicenseOffice } from "./components/LicenseOffice/LicenseOffice";
 import { TerminalMap } from "./components/TerminalMap/TerminalMap";
+import { CheatsPanel } from "./components/CheatsPanel/CheatsPanel";
 
 function App() {
   return (
@@ -21,6 +22,9 @@ function App() {
         <LicenseOffice />
         <div className="lg:col-span-2">
           <ContractBoard />
+        </div>
+        <div className="lg:col-span-2">
+          <CheatsPanel />
         </div>
       </main>
     </div>

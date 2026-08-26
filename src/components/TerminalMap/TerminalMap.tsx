@@ -3,6 +3,7 @@ import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { useGameStore } from "../../state/gameStore";
 import { getStateByName } from "../../data/stateData";
 import { TERMINAL_TIERS } from "../../data/terminalCatalog";
+import { getNewTerminalPriceCents } from "../../systems/terminalSystem";
 import { formatCents } from "../../utils/format";
 
 const US_TOPOJSON_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
@@ -138,17 +139,22 @@ function StateDetailPanel({
 }) {
   if (!terminal) {
     const tier1 = TERMINAL_TIERS[1];
+    const priceCents = getNewTerminalPriceCents(stateCode);
     return (
-      <div className="bg-slate-900 rounded p-3 flex items-center justify-between">
+      <div className="bg-slate-900 rounded p-3 flex items-center justify-between gap-3">
         <div className="text-sm text-slate-300">
-          No terminal in {stateCode} yet. Tier 1: {tier1.vehicleCapacity} capacity, {formatCents(tier1.monthlyLeaseCostCents)}/mo lease.
+          No terminal in {stateCode} yet. Tier 1: {tier1.vehicleCapacity} capacity,{" "}
+          {formatCents(tier1.monthlyLeaseCostCents)}/mo lease.
+          <span className="block text-xs text-slate-400 mt-0.5">
+            Cost to open: {formatCents(priceCents)} (scaled by local demand)
+          </span>
         </div>
         <button
           onClick={onBuy}
-          disabled={cashCents < tier1.priceCents}
+          disabled={cashCents < priceCents}
           className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-semibold px-3 py-1.5 rounded transition-colors shrink-0"
         >
-          Open Terminal
+          Open Terminal ({formatCents(priceCents)})
         </button>
       </div>
     );

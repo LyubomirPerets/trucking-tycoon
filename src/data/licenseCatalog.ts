@@ -37,8 +37,8 @@ export const LICENSE_CATALOG: LicenseCatalogEntry[] = [
   {
     type: "oversizeLoadPermit",
     label: "Oversize Load Permit",
-    description: "Required to haul oversized cargo.",
-    scoped: true,
+    description: "Required to haul oversized/overweight cargo. Covers all states.",
+    scoped: false,
     priceCents: 80_000,
     annualRenewalCostCents: 20_000,
   },

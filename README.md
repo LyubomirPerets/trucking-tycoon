@@ -27,7 +27,8 @@ npm run lint      # eslint
 - Game state store with save/load to `localStorage` (tolerant of saves from older versions of the schema)
 - Dashboard: cash, reputation, current day, Advance Day
 - Fleet Manager: a wide vehicle catalog across vans/box trucks/semis, filterable by class; fleet size capped by terminal capacity
-- License Office: buy operating authorities/endorsements; contracts require them (interstate authority always, hazmat/refrigerated/oversize situationally) and auto-renew annually if affordable
+- License Office: buy operating authorities/endorsements; contracts require them (interstate authority always, hazmat/refrigerated/oversize situationally — all national) and auto-renew annually if affordable
+- Cheats / Debug panel: inject cash, grant all licenses, set reputation/day, Free Mode (free purchases, no capacity limit)
 - Terminal Map: an interactive US map (`react-simple-maps`) to open and upgrade terminals per state, minimizable; terminal leases billed monthly
 - Contract Board: weekly offered contracts, accept, assign an idle vehicle of the right class (once licensed), watch it complete on the deadline day and pay out
 - Tick engine (`src/systems/tickEngine.ts`) is a pure function — covered by tests in `tickEngine.test.ts`

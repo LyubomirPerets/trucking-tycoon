@@ -1,5 +1,15 @@
 # Changelog
 
+## License/terminal fixes + cheats panel
+
+**Oversize Load Permit is now a national license.** It used to be per-state, so buying it did nothing for a contract unless you happened to pick the contract's origin state — and nothing in the UI told you which state that was. It now covers everywhere, like the Hazmat and Refrigerated certs. Existing per-state oversize permits in old saves keep working. (Intrastate Operating Authority stays per-state but no contract currently requires it.)
+
+**Terminal purchase price is now consistent.** The "Open Terminal" button checked affordability against the unscaled base price ($80k) while the store actually charged `base × state demand multiplier` — so cheap states were wrongly disabled and expensive states let you click a button that silently did nothing. The map panel now shows the real demand-scaled price and gates on it. Single source of truth: `getNewTerminalPriceCents()` in `terminalSystem.ts`.
+
+**Terminals are reachable earlier.** Tier-1 base cost lowered $80k → $50k (Tier 2 $120k → $100k, Tier 3 $200k → $180k), so the lower-demand states are affordable within the first few contracts.
+
+**Cheats / Debug panel** (collapsible, collapsed by default, at the bottom of the grid): inject cash (fixed increments or custom), grant all licenses, set reputation and day directly, and a Free Mode toggle that makes vehicles/terminals/upgrades free and ignores fleet-capacity limits. Free Mode is transient (resets on reload); the other actions mutate normal game state.
+
 ## Drivers removed, vehicle catalog expanded, map polish
 
 **Drivers removed.** No more hiring pool or HR panel — dispatch just needs an idle vehicle of the right class (plus licenses). Former driver wage is folded into each vehicle's per-mile operating cost.

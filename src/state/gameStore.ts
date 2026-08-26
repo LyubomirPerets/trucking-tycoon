@@ -4,18 +4,35 @@ import { createInitialState } from "./initialState";
 import { advanceDay as advanceDayPure } from "../systems/tickEngine";
 import type { VehicleCatalogEntry } from "../data/vehicleCatalog";
 import { LICENSE_CATALOG } from "../data/licenseCatalog";
+import type { LicenseCatalogEntry } from "../data/licenseCatalog";
 import { TERMINAL_TIERS } from "../data/terminalCatalog";
-import { getState as getStateInfo } from "../data/stateData";
+import { getState as getStateInfo, STATES } from "../data/stateData";
 import { BALANCE } from "../data/balance";
 import { makeInfoEvent } from "../systems/eventGenerator";
 import { hasAllRequiredLicenses, hasLicense } from "../systems/licenseSystem";
-import { getFleetCapacity } from "../systems/terminalSystem";
+import { getFleetCapacity, getNewTerminalPriceCents } from "../systems/terminalSystem";
+import { formatCents } from "../utils/format";
 
 const SAVE_KEY = "trucking-tycoon-save";
 
 let nextVehicleSeq = 1;
 let nextLicenseSeq = 1;
 let nextTerminalSeq = 1;
+
+function makeLicense(
+  entry: LicenseCatalogEntry,
+  stateCode: string | null,
+  day: number
+): License {
+  return {
+    id: `license-${nextLicenseSeq++}`,
+    type: entry.type,
+    stateCode: entry.scoped ? stateCode : null,
+    acquiredOnDay: day,
+    annualRenewalCostCents: entry.annualRenewalCostCents,
+    expiresOnDay: day + BALANCE.licenseTermDays,
+  };
+}
 
 function loadFromStorage(): GameState | null {
   try {
@@ -40,6 +57,12 @@ function loadFromStorage(): GameState | null {
 
 interface GameStore {
   state: GameState;
+  /**
+   * Dev/debug "free mode": when on, buying vehicles/terminals/upgrades costs
+   * nothing and skips fleet-capacity limits. Transient — not persisted, resets
+   * on reload.
+   */
+  freeMode: boolean;
   advanceDay: () => void;
   buyVehicle: (entry: VehicleCatalogEntry) => void;
   buyLicense: (type: LicenseType, stateCode: string | null) => void;
@@ -50,18 +73,27 @@ interface GameStore {
   saveGame: () => void;
   loadGame: () => void;
   resetGame: () => void;
+  // ── Cheats ──
+  toggleFreeMode: () => void;
+  cheatInjectCash: (cents: number) => void;
+  cheatGrantAllLicenses: () => void;
+  cheatSetReputation: (value: number) => void;
+  cheatSetDay: (day: number) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   state: loadFromStorage() ?? createInitialState(),
+  freeMode: false,
 
   advanceDay: () =>
     set((s) => ({ state: advanceDayPure(s.state) })),
 
   buyVehicle: (entry) =>
     set((s) => {
-      if (s.state.company.cashCents < entry.priceCents) return s;
-      if (s.state.vehicles.length >= getFleetCapacity(s.state.terminals)) return s;
+      if (!s.freeMode) {
+        if (s.state.company.cashCents < entry.priceCents) return s;
+        if (s.state.vehicles.length >= getFleetCapacity(s.state.terminals)) return s;
+      }
       const vehicle: Vehicle = {
         id: `vehicle-${nextVehicleSeq++}`,
         class: entry.class,
@@ -82,7 +114,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ...s.state,
           company: {
             ...s.state.company,
-            cashCents: s.state.company.cashCents - entry.priceCents,
+            cashCents: s.state.company.cashCents - (s.freeMode ? 0 : entry.priceCents),
           },
           vehicles: [...s.state.vehicles, vehicle],
           eventLog: [
@@ -103,21 +135,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const relevantStateCode = catalogEntry.scoped ? stateCode! : "";
       if (hasLicense(s.state.licenses, type, s.state.company.currentDay, relevantStateCode)) return s;
 
-      const license: License = {
-        id: `license-${nextLicenseSeq++}`,
-        type,
-        stateCode: catalogEntry.scoped ? stateCode : null,
-        acquiredOnDay: s.state.company.currentDay,
-        annualRenewalCostCents: catalogEntry.annualRenewalCostCents,
-        expiresOnDay: s.state.company.currentDay + BALANCE.licenseTermDays,
-      };
+      const license = makeLicense(catalogEntry, stateCode, s.state.company.currentDay);
 
       return {
         state: {
           ...s.state,
           company: {
             ...s.state.company,
-            cashCents: s.state.company.cashCents - catalogEntry.priceCents,
+            cashCents: s.state.company.cashCents - (s.freeMode ? 0 : catalogEntry.priceCents),
           },
           licenses: [...s.state.licenses, license],
           eventLog: [
@@ -138,8 +163,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!stateInfo) return s;
 
       const tier1 = TERMINAL_TIERS[1];
-      const priceCents = Math.round(tier1.priceCents * stateInfo.demandMultiplier);
-      if (s.state.company.cashCents < priceCents) return s;
+      const priceCents = getNewTerminalPriceCents(stateCode);
+      if (!s.freeMode && s.state.company.cashCents < priceCents) return s;
 
       const terminal: Terminal = {
         id: `terminal-${nextTerminalSeq++}`,
@@ -157,7 +182,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ...s.state,
           company: {
             ...s.state.company,
-            cashCents: s.state.company.cashCents - priceCents,
+            cashCents: s.state.company.cashCents - (s.freeMode ? 0 : priceCents),
           },
           terminals: [...s.state.terminals, terminal],
           eventLog: [
@@ -176,14 +201,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       const nextTier = (terminal.tier + 1) as 2 | 3;
       const tierInfo = TERMINAL_TIERS[nextTier];
-      if (s.state.company.cashCents < tierInfo.priceCents) return s;
+      if (!s.freeMode && s.state.company.cashCents < tierInfo.priceCents) return s;
 
       return {
         state: {
           ...s.state,
           company: {
             ...s.state.company,
-            cashCents: s.state.company.cashCents - tierInfo.priceCents,
+            cashCents: s.state.company.cashCents - (s.freeMode ? 0 : tierInfo.priceCents),
           },
           terminals: s.state.terminals.map((t) =>
             t.id === terminalId
@@ -258,6 +283,73 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   resetGame: () => {
     localStorage.removeItem(SAVE_KEY);
-    set({ state: createInitialState() });
+    set({ state: createInitialState(), freeMode: false });
   },
+
+  // ── Cheats ──────────────────────────────
+  toggleFreeMode: () => set((s) => ({ freeMode: !s.freeMode })),
+
+  cheatInjectCash: (cents) =>
+    set((s) => ({
+      state: {
+        ...s.state,
+        company: {
+          ...s.state.company,
+          cashCents: Math.max(0, s.state.company.cashCents + cents),
+        },
+        eventLog: [
+          ...s.state.eventLog,
+          makeInfoEvent(
+            s.state.company.currentDay,
+            `[cheat] ${cents >= 0 ? "Injected" : "Removed"} ${formatCents(Math.abs(cents))}.`
+          ),
+        ],
+      },
+    })),
+
+  cheatGrantAllLicenses: () =>
+    set((s) => {
+      const day = s.state.company.currentDay;
+      const held = new Set(
+        s.state.licenses.map((l) => `${l.type}:${l.stateCode ?? ""}`)
+      );
+      const added: License[] = [];
+      for (const entry of LICENSE_CATALOG) {
+        const targets = entry.scoped ? STATES.map((st) => st.code) : [null];
+        for (const code of targets) {
+          if (held.has(`${entry.type}:${code ?? ""}`)) continue;
+          added.push(makeLicense(entry, code, day));
+        }
+      }
+      if (added.length === 0) return s;
+      return {
+        state: {
+          ...s.state,
+          licenses: [...s.state.licenses, ...added],
+          eventLog: [
+            ...s.state.eventLog,
+            makeInfoEvent(day, `[cheat] Granted ${added.length} license(s).`),
+          ],
+        },
+      };
+    }),
+
+  cheatSetReputation: (value) =>
+    set((s) => ({
+      state: {
+        ...s.state,
+        company: {
+          ...s.state.company,
+          reputation: Math.min(100, Math.max(0, Math.round(value))),
+        },
+      },
+    })),
+
+  cheatSetDay: (day) =>
+    set((s) => ({
+      state: {
+        ...s.state,
+        company: { ...s.state.company, currentDay: Math.max(1, Math.round(day)) },
+      },
+    })),
 }));
