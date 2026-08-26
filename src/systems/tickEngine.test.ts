@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceDay } from "./tickEngine";
 import { createInitialState } from "../state/initialState";
-import type { Contract, Driver, Vehicle } from "../types";
+import type { Contract, Vehicle } from "../types";
 
 const noBreakdown = () => 0.99; // rng always above breakdown chance
 
@@ -15,26 +15,11 @@ function makeVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
     purchasePriceCents: 3_000_000,
     mileage: 0,
     condition: 100,
-    maintenanceCostPerMileCents: 10,
+    maintenanceCostPerMileCents: 60,
     fuelEfficiencyMpg: 18,
     cargoCapacityLbs: 3800,
-    assignedDriverId: null,
     assignedTerminalId: null,
     status: "enRoute",
-    ...overrides,
-  };
-}
-
-function makeDriver(overrides: Partial<Driver> = {}): Driver {
-  return {
-    id: "driver-1",
-    name: "Test Driver",
-    hiredOnDay: 1,
-    wagePerMileCents: 50,
-    experienceLevel: 3,
-    cdlClass: "A",
-    homeTerminalId: null,
-    status: "onRoute",
     ...overrides,
   };
 }
@@ -54,7 +39,6 @@ function makeContract(overrides: Partial<Contract> = {}): Contract {
     offeredOnDay: 1,
     status: "inProgress",
     assignedVehicleId: "vehicle-1",
-    assignedDriverId: "driver-1",
     ...overrides,
   };
 }
@@ -73,10 +57,9 @@ describe("advanceDay", () => {
     expect(JSON.stringify(state)).toBe(snapshot);
   });
 
-  it("deducts fuel, maintenance, and wage costs for an in-progress contract", () => {
+  it("deducts fuel and maintenance costs for an in-progress contract", () => {
     const state = createInitialState();
     state.vehicles = [makeVehicle()];
-    state.drivers = [makeDriver()];
     state.contracts = [makeContract()];
 
     const next = advanceDay(state, noBreakdown);
@@ -84,11 +67,10 @@ describe("advanceDay", () => {
     expect(next.vehicles[0].mileage).toBeGreaterThan(0);
   });
 
-  it("pays out and completes a contract on its deadline day, freeing vehicle and driver", () => {
+  it("pays out and completes a contract on its deadline day, freeing the vehicle", () => {
     const state = createInitialState();
     state.company.currentDay = 3;
     state.vehicles = [makeVehicle()];
-    state.drivers = [makeDriver()];
     state.contracts = [makeContract({ deadlineDay: 4, offeredOnDay: 1 })];
 
     const cashBefore = state.company.cashCents;
@@ -98,7 +80,6 @@ describe("advanceDay", () => {
     expect(contract.status).toBe("completed");
     expect(next.company.cashCents).toBeGreaterThan(cashBefore);
     expect(next.vehicles[0].status).toBe("idle");
-    expect(next.drivers[0].status).toBe("available");
   });
 
   it("drops offered contracts past their expiry window", () => {

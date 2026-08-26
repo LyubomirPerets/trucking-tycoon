@@ -6,8 +6,6 @@ export const BALANCE = {
   contractsOfferedPerWeek: 3,
   contractOfferExpiryDays: 7,
 
-  driverCandidatesPerWeek: 3,
-
   licenseTermDays: 365,
   oversizeWeightThresholdLbs: 30_000,
 

@@ -22,12 +22,16 @@ npm run test      # run the vitest suite
 npm run lint      # eslint
 ```
 
-## Current status (MVP)
+## Current status
 
-- Game state store with save/load to `localStorage`
+- Game state store with save/load to `localStorage` (tolerant of saves from older versions of the schema)
 - Dashboard: cash, reputation, current day, Advance Day
-- Fleet Manager: buy a van, view owned vehicles
-- Contract Board: weekly offered contracts, accept, assign a vehicle, watch it complete on the deadline day and pay out
+- Fleet Manager: a wide vehicle catalog across vans/box trucks/semis, filterable by class; fleet size capped by terminal capacity
+- License Office: buy operating authorities/endorsements; contracts require them (interstate authority always, hazmat/refrigerated/oversize situationally) and auto-renew annually if affordable
+- Terminal Map: an interactive US map (`react-simple-maps`) to open and upgrade terminals per state, minimizable; terminal leases billed monthly
+- Contract Board: weekly offered contracts, accept, assign an idle vehicle of the right class (once licensed), watch it complete on the deadline day and pay out
 - Tick engine (`src/systems/tickEngine.ts`) is a pure function — covered by tests in `tickEngine.test.ts`
 
-Not yet implemented (next up per spec.md): drivers/hiring, licenses, terminals, the state map UI, random events beyond breakdowns.
+Driver hiring/wages were tried and removed by design — vehicle operating cost is all-in (upkeep + crew) rather than tracking individual drivers.
+
+Not yet implemented (next up per spec.md): the Headquarters concept, random events beyond breakdowns (fuel price shifts, inspections), auto-play.

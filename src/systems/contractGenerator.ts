@@ -74,7 +74,6 @@ export function generateContract(
     offeredOnDay: currentDay,
     status: "offered",
     assignedVehicleId: null,
-    assignedDriverId: null,
   };
 }
 

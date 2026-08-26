@@ -1,19 +1,30 @@
+import { useState } from "react";
 import { useGameStore } from "../../state/gameStore";
 import { VEHICLE_CATALOG } from "../../data/vehicleCatalog";
 import { formatCents } from "../../utils/format";
 import { getFleetCapacity } from "../../systems/terminalSystem";
+import type { VehicleClass } from "../../types";
+
+const CLASS_LABELS: Record<VehicleClass, string> = {
+  van: "Van",
+  boxTruck: "Box Truck",
+  semi: "Semi",
+};
+
+const CLASS_FILTERS: Array<VehicleClass | "all"> = ["all", "van", "boxTruck", "semi"];
 
 export function FleetManager() {
   const vehicles = useGameStore((s) => s.state.vehicles);
   const terminals = useGameStore((s) => s.state.terminals);
   const cashCents = useGameStore((s) => s.state.company.cashCents);
   const buyVehicle = useGameStore((s) => s.buyVehicle);
+  const [classFilter, setClassFilter] = useState<VehicleClass | "all">("all");
 
   const capacity = getFleetCapacity(terminals);
   const atCapacity = vehicles.length >= capacity;
 
-  // Only the "van" class is unlocked at start (no licenses/terminals yet).
-  const availableCatalog = VEHICLE_CATALOG.filter((entry) => entry.class === "van");
+  const catalog =
+    classFilter === "all" ? VEHICLE_CATALOG : VEHICLE_CATALOG.filter((entry) => entry.class === classFilter);
 
   return (
     <div className="bg-slate-800 rounded-lg p-4 flex flex-col gap-4">
@@ -26,8 +37,23 @@ export function FleetManager() {
             Fleet at capacity ({vehicles.length}/{capacity}). Open or upgrade a terminal for more room.
           </p>
         )}
-        <div className="flex flex-col gap-2">
-          {availableCatalog.map((entry) => (
+        <div className="flex gap-1.5 mb-2">
+          {CLASS_FILTERS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setClassFilter(c)}
+              className={`text-xs px-2.5 py-1 rounded transition-colors ${
+                classFilter === c
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-900 text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {c === "all" ? "All" : CLASS_LABELS[c]}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1">
+          {catalog.map((entry) => (
             <div
               key={`${entry.make}-${entry.model}`}
               className="flex items-center justify-between bg-slate-900 rounded p-3"
@@ -35,6 +61,7 @@ export function FleetManager() {
               <div>
                 <div className="text-white font-medium">
                   {entry.year} {entry.make} {entry.model}
+                  <span className="text-slate-500 font-normal"> · {CLASS_LABELS[entry.class]}</span>
                 </div>
                 <div className="text-xs text-slate-400">
                   {entry.cargoCapacityLbs.toLocaleString()} lbs cap · {entry.fuelEfficiencyMpg} mpg
@@ -43,7 +70,7 @@ export function FleetManager() {
               <button
                 onClick={() => buyVehicle(entry)}
                 disabled={cashCents < entry.priceCents || atCapacity}
-                className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-semibold px-3 py-1.5 rounded transition-colors"
+                className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-semibold px-3 py-1.5 rounded transition-colors shrink-0"
               >
                 Buy for {formatCents(entry.priceCents)}
               </button>
@@ -65,6 +92,7 @@ export function FleetManager() {
                 <div>
                   <div className="text-white font-medium">
                     {v.year} {v.make} {v.model}
+                    <span className="text-slate-500 font-normal"> · {CLASS_LABELS[v.class]}</span>
                   </div>
                   <div className="text-xs text-slate-400">
                     {Math.round(v.mileage).toLocaleString()} mi · condition {Math.round(v.condition)}%

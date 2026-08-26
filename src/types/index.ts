@@ -26,10 +26,9 @@ export interface Vehicle {
   purchasePriceCents: number;
   mileage: number;
   condition: number; // 0-100, degrades over time/use, affects breakdown chance
-  maintenanceCostPerMileCents: number;
+  maintenanceCostPerMileCents: number; // all-in operating cost per mile: upkeep + crew
   fuelEfficiencyMpg: number;
   cargoCapacityLbs: number;
-  assignedDriverId: string | null;
   assignedTerminalId: string | null;
   status: VehicleStatus;
 }
@@ -63,30 +62,6 @@ export interface Terminal {
   staffCount: number;
 }
 
-// ── Drivers ──────────────────────────────
-export type DriverStatus = "available" | "onRoute" | "offDuty";
-
-export interface Driver {
-  id: string;
-  name: string;
-  hiredOnDay: number;
-  wagePerMileCents: number;
-  experienceLevel: 1 | 2 | 3 | 4 | 5; // affects safety, speed, fuel efficiency
-  cdlClass: "A" | "B" | "C";
-  homeTerminalId: string | null;
-  status: DriverStatus;
-}
-
-// A prospect in the hiring pool — becomes a Driver once hired.
-export interface DriverCandidate {
-  id: string;
-  name: string;
-  experienceLevel: 1 | 2 | 3 | 4 | 5;
-  cdlClass: "A" | "B" | "C";
-  wagePerMileCents: number;
-  offeredOnDay: number;
-}
-
 // ── Contracts / Freight ──────────────────
 export type ContractStatus = "offered" | "accepted" | "inProgress" | "completed" | "failed";
 
@@ -104,7 +79,6 @@ export interface Contract {
   offeredOnDay: number;
   status: ContractStatus;
   assignedVehicleId: string | null;
-  assignedDriverId: string | null;
 }
 
 // ── Events ───────────────────────────────
@@ -130,8 +104,6 @@ export interface GameState {
   vehicles: Vehicle[];
   licenses: License[];
   terminals: Terminal[];
-  drivers: Driver[];
-  driverCandidates: DriverCandidate[];
   contracts: Contract[];
   eventLog: GameEvent[];
 }

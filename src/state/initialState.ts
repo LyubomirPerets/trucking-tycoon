@@ -1,6 +1,5 @@
 import type { GameState } from "../types";
 import { BALANCE } from "../data/balance";
-import { generateDriverCandidates } from "../systems/driverGenerator";
 
 export function createInitialState(): GameState {
   return {
@@ -14,15 +13,13 @@ export function createInitialState(): GameState {
     vehicles: [],
     licenses: [],
     terminals: [],
-    drivers: [],
-    driverCandidates: generateDriverCandidates(BALANCE.driverCandidatesPerWeek, 1),
     contracts: [],
     eventLog: [
       {
         id: "event-welcome",
         day: 1,
         type: "info",
-        message: "Welcome to Trucking Empire. Buy your first van to get started.",
+        message: "Welcome to Trucking Empire. Buy your first vehicle to get started.",
       },
     ],
   };

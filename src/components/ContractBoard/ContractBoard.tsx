@@ -3,7 +3,7 @@ import { useGameStore } from "../../state/gameStore";
 import { formatCents } from "../../utils/format";
 import { LICENSE_CATALOG } from "../../data/licenseCatalog";
 import { hasAllRequiredLicenses } from "../../systems/licenseSystem";
-import type { Contract, Driver, License, Vehicle } from "../../types";
+import type { Contract, License, Vehicle } from "../../types";
 
 function licenseLabel(type: Contract["requiredLicenses"][number]): string {
   return LICENSE_CATALOG.find((e) => e.type === type)?.label ?? type;
@@ -12,11 +12,10 @@ function licenseLabel(type: Contract["requiredLicenses"][number]): string {
 export function ContractBoard() {
   const contracts = useGameStore((s) => s.state.contracts);
   const vehicles = useGameStore((s) => s.state.vehicles);
-  const drivers = useGameStore((s) => s.state.drivers);
   const licenses = useGameStore((s) => s.state.licenses);
   const currentDay = useGameStore((s) => s.state.company.currentDay);
   const acceptContract = useGameStore((s) => s.acceptContract);
-  const assignCrewToContract = useGameStore((s) => s.assignCrewToContract);
+  const assignVehicleToContract = useGameStore((s) => s.assignVehicleToContract);
 
   const offered = contracts.filter((c) => c.status === "offered");
   const active = contracts.filter((c) => c.status === "accepted" || c.status === "inProgress");
@@ -61,10 +60,9 @@ export function ContractBoard() {
                   <DispatchControls
                     contract={c}
                     vehicles={vehicles}
-                    drivers={drivers}
                     licenses={licenses}
                     currentDay={currentDay}
-                    onDispatch={(vehicleId, driverId) => assignCrewToContract(c.id, vehicleId, driverId)}
+                    onDispatch={(vehicleId) => assignVehicleToContract(c.id, vehicleId)}
                   />
                 ) : (
                   <span className="text-xs text-blue-300">En route · due day {c.deadlineDay}</span>
@@ -81,25 +79,21 @@ export function ContractBoard() {
 function DispatchControls({
   contract,
   vehicles,
-  drivers,
   licenses,
   currentDay,
   onDispatch,
 }: {
   contract: Contract;
   vehicles: Vehicle[];
-  drivers: Driver[];
   licenses: License[];
   currentDay: number;
-  onDispatch: (vehicleId: string, driverId: string) => void;
+  onDispatch: (vehicleId: string) => void;
 }) {
   const [vehicleId, setVehicleId] = useState("");
-  const [driverId, setDriverId] = useState("");
 
   const eligibleVehicles = vehicles.filter(
     (v) => v.status === "idle" && v.class === contract.requiredVehicleClass
   );
-  const availableDrivers = drivers.filter((d) => d.status === "available");
   const missingLicenses = contract.requiredLicenses.filter(
     (type) => !hasAllRequiredLicenses(licenses, [type], currentDay, contract.originStateCode)
   );
@@ -111,9 +105,6 @@ function DispatchControls({
   }
   if (eligibleVehicles.length === 0) {
     return <span className="text-xs text-amber-400">No idle {contract.requiredVehicleClass} available</span>;
-  }
-  if (availableDrivers.length === 0) {
-    return <span className="text-xs text-amber-400">No available drivers</span>;
   }
 
   return (
@@ -132,23 +123,9 @@ function DispatchControls({
           </option>
         ))}
       </select>
-      <select
-        value={driverId}
-        onChange={(e) => setDriverId(e.target.value)}
-        className="bg-slate-700 text-white text-sm rounded px-2 py-1"
-      >
-        <option value="" disabled>
-          Driver…
-        </option>
-        {availableDrivers.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-          </option>
-        ))}
-      </select>
       <button
-        onClick={() => onDispatch(vehicleId, driverId)}
-        disabled={!vehicleId || !driverId}
+        onClick={() => onDispatch(vehicleId)}
+        disabled={!vehicleId}
         className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-semibold px-3 py-1.5 rounded transition-colors"
       >
         Dispatch

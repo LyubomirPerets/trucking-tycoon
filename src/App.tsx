@@ -1,7 +1,6 @@
 import { Dashboard } from "./components/Dashboard/Dashboard";
 import { FleetManager } from "./components/FleetManager/FleetManager";
 import { ContractBoard } from "./components/ContractBoard/ContractBoard";
-import { HRPanel } from "./components/HRPanel/HRPanel";
 import { LicenseOffice } from "./components/LicenseOffice/LicenseOffice";
 import { TerminalMap } from "./components/TerminalMap/TerminalMap";
 
@@ -19,7 +18,6 @@ function App() {
           <TerminalMap />
         </div>
         <FleetManager />
-        <HRPanel />
         <LicenseOffice />
         <div className="lg:col-span-2">
           <ContractBoard />
