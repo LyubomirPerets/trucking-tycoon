@@ -22,7 +22,20 @@ function loadFromStorage(): GameState | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as GameState;
+    const parsed = JSON.parse(raw) as Partial<GameState>;
+    // Merge over fresh defaults so a save from before a field existed
+    // (e.g. driverCandidates) doesn't crash the app on load.
+    const defaults = createInitialState();
+    return {
+      company: { ...defaults.company, ...parsed.company },
+      vehicles: parsed.vehicles ?? defaults.vehicles,
+      licenses: parsed.licenses ?? defaults.licenses,
+      terminals: parsed.terminals ?? defaults.terminals,
+      drivers: parsed.drivers ?? defaults.drivers,
+      driverCandidates: parsed.driverCandidates ?? defaults.driverCandidates,
+      contracts: parsed.contracts ?? defaults.contracts,
+      eventLog: parsed.eventLog ?? defaults.eventLog,
+    };
   } catch {
     return null;
   }
