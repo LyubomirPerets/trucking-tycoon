@@ -12,7 +12,7 @@ function readOpen(storageKey: string, fallback: boolean): boolean {
   }
   return fallback;
 }
-
+// TODO: how to write to localStorage in a way that doesn't throw in private mode?
 function writeOpen(storageKey: string, open: boolean): void {
   try {
     localStorage.setItem(STORAGE_PREFIX + storageKey, open ? "1" : "0");
